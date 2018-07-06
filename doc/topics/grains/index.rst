@@ -121,6 +121,14 @@ the following configuration:
 For this example to work, you would need to have defined the grain
 ``role`` for the minions you wish to match.
 
+It is also possible to match a value in a structured grain
+
+.. code-block:: yaml
+
+    'selinux:enforced:Disabled':
+      - match: grain
+      - state3
+
 .. _writing-grains:
 
 Writing Grains
