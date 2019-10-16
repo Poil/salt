@@ -372,7 +372,7 @@ def managed(name, ppa=None, **kwargs):
             if enabled is not None \
             else salt.utils.data.is_true(disabled)
 
-    elif __grains__['os_family'] in ('RedHat', 'Suse'):
+    elif __grains__['os_family'] in ('RedHat', 'Suse', 'VMware Photon'):
         if 'humanname' in kwargs:
             kwargs['name'] = kwargs.pop('humanname')
         if 'name' not in kwargs:
@@ -423,14 +423,14 @@ def managed(name, ppa=None, **kwargs):
                     # not explicitly set, so we don't need to update the repo
                     # if it's desired to be enabled and the 'enabled' key is
                     # missing from the repo definition
-                    if __grains__['os_family'] == 'RedHat':
+                    if __grains__['os_family'] in ('RedHat', 'VMware Photon'):
                         if not salt.utils.data.is_true(sanitizedkwargs[kwarg]):
                             break
                     else:
                         break
                 else:
                     break
-            elif kwarg == 'comps':
+            elif kwarg in ('comps', 'key_url'):
                 if sorted(sanitizedkwargs[kwarg]) != sorted(pre[kwarg]):
                     break
             elif kwarg == 'line' and __grains__['os_family'] == 'Debian':
@@ -448,14 +448,17 @@ def managed(name, ppa=None, **kwargs):
                         salt.utils.pkg.deb.combine_comments(kwargs['comments'])
                     if pre_comments != post_comments:
                         break
-            elif kwarg == 'comments' and __grains__['os_family'] == 'RedHat':
+            elif kwarg == 'comments' and __grains__['os_family'] in ('RedHat', 'VMware Photon'):
                 precomments = salt.utils.pkg.rpm.combine_comments(pre[kwarg])
                 kwargcomments = salt.utils.pkg.rpm.combine_comments(
                         sanitizedkwargs[kwarg])
                 if precomments != kwargcomments:
                     break
+            elif kwarg == 'architectures' and sanitizedkwargs[kwarg]:
+                if set(sanitizedkwargs[kwarg]) != set(pre[kwarg]):
+                    break
             else:
-                if __grains__['os_family'] in ('RedHat', 'Suse') \
+                if __grains__['os_family'] in ('RedHat', 'Suse', 'VMware Photon') \
                         and any(isinstance(x, bool) for x in
                                 (sanitizedkwargs[kwarg], pre[kwarg])):
                     # This check disambiguates 1/0 from True/False
@@ -473,11 +476,18 @@ def managed(name, ppa=None, **kwargs):
 
     if __opts__['test']:
         ret['comment'] = (
-            'Package repo \'{0}\' will be configured. This may cause pkg '
+            'Package repo \'{0}\' would be configured. This may cause pkg '
             'states to behave differently than stated if this action is '
             'repeated without test=True, due to the differences in the '
             'configured repositories.'.format(name)
         )
+        if pre:
+            for kwarg in sanitizedkwargs:
+                if sanitizedkwargs.get(kwarg) != pre.get(kwarg):
+                    ret['changes'][kwarg] = {'new': sanitizedkwargs.get(kwarg),
+                                             'old': pre.get(kwarg)}
+        else:
+            ret['changes']['repo'] = name
         return ret
 
     # empty file before configure
@@ -503,9 +513,8 @@ def managed(name, ppa=None, **kwargs):
         if pre:
             for kwarg in sanitizedkwargs:
                 if post.get(kwarg) != pre.get(kwarg):
-                    change = {'new': post[kwarg],
-                              'old': pre.get(kwarg)}
-                    ret['changes'][kwarg] = change
+                    ret['changes'][kwarg] = {'new': post.get(kwarg),
+                                             'old': pre.get(kwarg)}
         else:
             ret['changes'] = {'repo': repo}
 

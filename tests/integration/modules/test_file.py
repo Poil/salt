@@ -24,7 +24,6 @@ except ImportError:
 from tests.support.runtests import RUNTIME_VARS
 from tests.support.case import ModuleCase
 from tests.support.unit import skipIf
-from tests.support.paths import FILES
 
 # Import salt libs
 import salt.utils.files
@@ -144,7 +143,7 @@ class FileModuleTest(ModuleCase):
             self.skipTest('patch is not installed')
 
         src_patch = os.path.join(
-            FILES, 'file', 'base', 'hello.patch')
+            RUNTIME_VARS.FILES, 'file', 'base', 'hello.patch')
         src_file = os.path.join(RUNTIME_VARS.TMP, 'src.txt')
         with salt.utils.files.fopen(src_file, 'w+') as fp:
             fp.write(salt.utils.stringutils.to_str('Hello\n'))
@@ -209,6 +208,25 @@ class FileModuleTest(ModuleCase):
                               mode='insert', after='Hello')
         self.assertIn('Hello' + os.linesep + '+Goodbye', ret)
 
+    def test_file_line_changes_entire_line(self):
+        '''
+        Test file.line entire line matching
+
+        Issue #49855
+        '''
+        ret = self.minion_run('file.line', self.myfile, 'Goodbye',
+                              mode='insert', after='Hello')
+        assert 'Hello' + os.linesep + '+Goodbye' in ret
+
+        ret = self.minion_run('file.line', self.myfile, 'Goodbye 1',
+                              mode='insert', after='Hello')
+        assert 'Hello' + os.linesep + '+Goodbye 1' + os.linesep + ' Goodbye' + os.linesep in ret
+
+        with salt.utils.files.fopen(self.myfile, 'r') as fh_:
+            content = fh_.read()
+
+        assert 'Hello' + os.linesep + 'Goodbye 1' + os.linesep + 'Goodbye' + os.linesep == content
+
     def test_file_line_content(self):
         self.minion_run('file.line', self.myfile, 'Goodbye',
                         mode='insert', after='Hello')
@@ -271,3 +289,15 @@ class FileModuleTest(ModuleCase):
         with salt.utils.files.fopen(self.myfile, 'r') as fp:
             content = fp.read()
         self.assertEqual(content, 'Hello' + os.linesep + 'Goodbye' + os.linesep)
+
+    def test_file_tail(self):
+        """
+        Test file.tail.
+
+        Issue #50578
+        """
+        with salt.utils.files.fopen(self.myfile, 'a') as fp:
+            fp.write(salt.utils.stringutils.to_str('Goodbye' + os.linesep))
+        ret = self.run_function('file.tail', 'file://' + self.myfile, 2)
+
+        self.assertEqual(list(ret), ['file://' + self.myfile])

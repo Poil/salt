@@ -32,7 +32,7 @@ def __virtual__():
     '''
     Only run on Linux systems
     '''
-    if __grains__['kernel'] != 'Linux':
+    if __grains__.get('kernel') != 'Linux':
         return (False, 'The linux_sysctl execution module cannot be loaded: only available on Linux systems.')
     return __virtualname__
 
@@ -132,7 +132,7 @@ def assign(name, value):
     if six.PY3:
         tran_tab = name.translate(''.maketrans('./', '/.'))
     else:
-        if isinstance(name, unicode):  # pylint: disable=incompatible-py3-code
+        if isinstance(name, unicode):  # pylint: disable=incompatible-py3-code,undefined-variable
             trans_args = {ord('/'): u'.', ord('.'): u'/'}
         else:
             trans_args = string.maketrans('./', '/.')
